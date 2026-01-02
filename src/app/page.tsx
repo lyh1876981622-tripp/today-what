@@ -56,6 +56,8 @@ export default function Page() {
 
   const [avoidRepeat, setAvoidRepeat] = useState(true);
   const [avoidCount, setAvoidCount] = useState(3);
+  const [transferText, setTransferText] = useState('');
+  const [transferMsg, setTransferMsg] = useState<string | null>(null);
 
   // 读取本地存档
   useEffect(() => {
@@ -120,7 +122,71 @@ export default function Page() {
   const updateItem = (id: string, patch: Partial<Item>) => {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
   };
+const exportMenu = async () => {
+  const payload = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    items,
+  };
+  const text = JSON.stringify(payload, null, 2);
+  setTransferText(text);
 
+  try {
+    await navigator.clipboard.writeText(text);
+    setTransferMsg('已导出并复制到剪贴板');
+    setTimeout(() => setTransferMsg(null), 2000);
+  } catch {
+    setTransferMsg('已导出到文本框（剪贴板复制失败，可手动复制）');
+    setTimeout(() => setTransferMsg(null), 2500);
+  }
+};
+
+const importMenu = () => {
+  const raw = transferText.trim();
+  if (!raw) {
+    setTransferMsg('文本框为空，无法导入');
+    setTimeout(() => setTransferMsg(null), 2000);
+    return;
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+
+    // 兼容两种格式：
+    // 1) { items: [...] }
+    // 2) 直接就是 [...]
+    const incoming = Array.isArray(parsed) ? parsed : parsed.items;
+
+    if (!Array.isArray(incoming)) throw new Error('Invalid format');
+
+    const normalized: Item[] = incoming
+      .map((x: any) => ({
+        id: typeof x.id === 'string' && x.id ? x.id : uid(),
+        name: String(x.name ?? '').trim(),
+        weight: clamp(Number(x.weight) || 1, 1, 10),
+        enabled: Boolean(x.enabled ?? true),
+      }))
+      .filter((x) => x.name.length > 0);
+
+    if (normalized.length === 0) {
+      setTransferMsg('导入失败：没有有效菜单项');
+      setTimeout(() => setTransferMsg(null), 2500);
+      return;
+    }
+
+    if (!confirm(`确定导入 ${normalized.length} 个菜单项吗？这会覆盖当前菜单。`)) return;
+
+    setItems(normalized);
+    setRecent([]);
+    setResult(null);
+
+    setTransferMsg('导入成功');
+    setTimeout(() => setTransferMsg(null), 2000);
+  } catch {
+    setTransferMsg('导入失败：JSON 格式不正确');
+    setTimeout(() => setTransferMsg(null), 2500);
+  }
+};
   const removeItem = (id: string) => {
     setItems((prev) => prev.filter((it) => it.id !== id));
     setRecent((prev) => prev.filter((x) => x !== id));
@@ -155,7 +221,42 @@ export default function Page() {
                 可抽选项：{enabledCount} 个
               </div>
             </div>
+            <div className="mt-6 rounded-xl border border-gray-800 bg-gray-950/30 p-4">
+  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <div className="text-sm font-medium">导入 / 导出</div>
+      <div className="mt-1 text-xs text-gray-500">
+        用于备份菜单、换设备迁移（复制 JSON）
+      </div>
+    </div>
 
+    <div className="flex gap-2">
+      <button
+        onClick={exportMenu}
+        className="rounded-lg bg-white px-3 py-2 text-sm font-medium text-gray-950 hover:bg-gray-200"
+      >
+        导出
+      </button>
+      <button
+        onClick={importMenu}
+        className="rounded-lg border border-gray-700 px-3 py-2 text-sm text-gray-200 hover:bg-gray-800"
+      >
+        导入（覆盖）
+      </button>
+    </div>
+  </div>
+
+  {transferMsg ? (
+    <div className="mt-3 text-xs text-gray-300">{transferMsg}</div>
+  ) : null}
+
+  <textarea
+    value={transferText}
+    onChange={(e) => setTransferText(e.target.value)}
+    placeholder="点击“导出”生成 JSON；或粘贴 JSON 后点“导入（覆盖）”"
+    className="mt-3 h-40 w-full rounded-lg border border-gray-800 bg-gray-950/40 p-3 text-xs text-gray-100 outline-none"
+  />
+</div>
             <div className="flex gap-2">
               <button
                 onClick={draw}
