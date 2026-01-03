@@ -46,10 +46,10 @@ export default function Home() {
           <h2 className="text-lg font-semibold text-slate-900">
             你希望这个工具帮你解决什么？
           </h2>
-          <p className="text-sm text-slate-500 mt-1">写一句话就行，直接提交，不跳转。</p>
+
 
           <textarea
-            className="w-full mt-4 border border-slate-200 rounded-xl p-3 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+            className="w-full mt-4 border border-slate-200 rounded-xl p-3 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 text-slate-900 placeholder:text-slate-400"
             rows={4}
             value={text}
             onChange={(e) => setText(e.target.value)}
